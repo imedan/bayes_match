@@ -1,0 +1,4 @@
+   RA            RA_err   DEC            DEC_err  GAIA_DR2_number           PLX    PLX_err     PMRA  PMRA_err   PMDE   PMDE_err  G       BP       RP        RV   RV_err   Teff     Rad       gofAL    epsi    SUPERBLINK_ID
+   epoch=2015.5            epoch=2015.5                                     mas      mas      mas/yr  mas/yr    mas/yr  mas/yr  mag      mag      mag      km/s   km/s     K      R_sun
+  0.00013963257  0.3292  -52.05438061353  0.4166  4973193420027545728       6.0146  0.6978     41.716  0.613   -199.936  0.866 20.1904  21.3910  18.6851  9999.99 99.99  9999.99  999.99     6.3147   2.367   --              
+  0.00318235478  0.0901  -46.01869117939  0.1032  4991190157631932800       1.9142  0.1755    160.164  0.160    -91.836  0.183 18.1845  18.9541  17.3075  9999.99 99.99  9999.99  999.99     0.6239   0.000   PM_I00000-4601  
