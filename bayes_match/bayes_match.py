@@ -831,8 +831,8 @@ def rank_match_check_dups(path, file, file_save,
             frank.write(' '.join(str(m) for m in new_line) + '\n')
 
 
-def fit_mag_ang_dists(path, file, file_rank, file_dis,
-                      file_dis_rank, name, mag_cols, xbins, ybins):
+def create_mag_ang_dists(path, file, file_rank, file_dis,
+                         file_dis_rank, name, mag_cols, xbins, ybins):
     """
     This creates all of the frequency dsitribtuions needed
     to calculate the Bayesian probabilities. This requires
