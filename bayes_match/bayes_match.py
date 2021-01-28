@@ -1,5 +1,7 @@
 # @Author: Ilija Medan
 # @Filename: bayes_match.py
+# @License: BSD 3-Clause
+# @Copyright: Ilija Medan
 
 import time
 import pandas as pd
@@ -23,7 +25,7 @@ def mjd_to_yr(mjds):
 
     Parameters
     ----------
-    
+
     mjds: array
         Mean Julian Dates
     """
@@ -39,7 +41,7 @@ def ang_sep(ra, dec, epoch, rag, decg, pmra, pmdec):
 
     Parameters
     ----------
-    
+
     ra: array
         Right Ascension of external objects
 
@@ -251,7 +253,7 @@ def lines_to_skip3(skip, file, ra, linemax):
 def min_year(ra, dec, rag, decg, pmra, pmdec):
     """
     This finds the epoch at which the star in an external catalog
-    with be at the impact parameter along a provided proper
+    will be at the impact parameter along a provided proper
     motion vector.
 
     NOTE: This currently looks for a large range of epochs.
@@ -268,16 +270,16 @@ def min_year(ra, dec, rag, decg, pmra, pmdec):
         Declination of external objects
 
     rag: float
-        Right Ascension of Gaia objects
+        Right Ascension of Gaia object
 
     decg: float
-        Declination of Gaia objects
+        Declination of Gaia object
 
     pmra: float
-        Proper Motion in Right Ascension of Gaia objects
+        Proper Motion in Right Ascension of Gaia object
 
     pmdec: float
-        Proper Motion in Declination of Gaia objects
+        Proper Motion in Declination of Gaia object
     """
     epochs = np.arange(1950, 2050 + 1 / 12, 1 / 12)
     dras = np.zeros(len(epochs))
@@ -341,7 +343,7 @@ def cross_match(match_file, chunksize, total,
     start = time.time()
     path = ''
     path1 = ''
-    
+
     # load the data in a way that can be divided into chunks
     match_ids_chunks = pd.read_table(path + match_file,
                                      usecols=idcol,
@@ -370,7 +372,7 @@ def cross_match(match_file, chunksize, total,
     match_mags = match_mags_chunks.get_chunk(chunksize).to_numpy(dtype=float)
     match_array = np.column_stack((match_array,
                                    match_mags,
-                                   np.arange(0, chunksize, 1)))
+                                   np.arange(0, len(match_array), 1)))
 
     num_to_skip = 0
     best_epochs = []
@@ -379,10 +381,15 @@ def cross_match(match_file, chunksize, total,
         skip = 0
         matches = 0
         tot = len(match_array)
-        do_3 = True
+        if tot < total:
+            do_3 = True
+        else:
+            do_3 = False
         # begin iterating though the Gaia file
         for x in f:
             i += 1
+            # can change this line if want to start match
+            # where you left off in another run
             if i > 0:
             	# pull out needed data from the Gaia file
                 line = x.split()
@@ -575,7 +582,7 @@ def cross_match_dis(match_file, chunksize, total, idcol,
                                       chunksize=chunksize,
                                       delim_whitespace=True)
     match_mags = match_mags_chunks.get_chunk(chunksize).to_numpy(dtype=float)
-    match_array = np.column_stack((match_array, match_mags, np.arange(0, chunksize, 1)))
+    match_array = np.column_stack((match_array, match_mags, np.arange(0, len(match_array), 1)))
     num_to_skip = 0
     best_epochs = []
     with open(path1 + main_match_file, 'r') as f, open(path + match_save_file_all, 'w') as fall, open(path + match_save_file,'w') as fbest:
@@ -583,9 +590,14 @@ def cross_match_dis(match_file, chunksize, total, idcol,
         skip = 0
         matches = 0
         tot = len(match_array)
-        do_3 = True
+        if tot < total:
+            do_3 = True
+        else:
+            do_3 = False
         for x in f:
             i += 1
+            # can change this line if want to start match
+            # where you left off in another run
             if i > 0:
                 line = x.split()
                 rag = float(line[0])
@@ -607,10 +619,10 @@ def cross_match_dis(match_file, chunksize, total, idcol,
                 while sk_st < 0:
                     print('NEW CHUNK')
                     num_to_skip += chunksize
-                    
+
                     match_ids = np.concatenate((match_ids[int(chunksize - 100000):],
                                                 match_ids_chunks.get_chunk(chunksize).to_numpy(dtype=int)))
-                
+
                     match_array_stack = match_array[int(chunksize - 100000):,:].copy()
                     match_array_stack[:, 0] -= match_array_stack[0][0]
                     match_array = match_array_chunks.get_chunk(chunksize).to_numpy(dtype=float)
@@ -654,7 +666,7 @@ def cross_match_dis(match_file, chunksize, total, idcol,
                         for j in range(len(dra)):
                             if dra[j] ** 2 + dde[j] ** 2 < 15 ** 2:
                                 match_line = [idg, rag, decg, plxg, plxerrg,
-                                              pmrag,pmdecg,Gg,
+                                              pmrag, pmdecg, Gg,
                                               match_ids[int(match_array2[j][0])][0]] + [match_array2[j][k] for k in range(1, 4)]
                                 match_line.append(dra[j])
                                 match_line.append(dde[j])
@@ -848,7 +860,8 @@ def fit_mag_ang_dists(path, file, file_rank, file_dis,
         displaced sample
 
     name: str
-        name of external catalog
+        name of external catalog that is prefixed
+        to the all matches file
 
     mag_cols: list
         list of column numbers for magnitudes in file
@@ -859,12 +872,12 @@ def fit_mag_ang_dists(path, file, file_rank, file_dis,
     ybins: array
         bins for frequency distirbution for mag difference axis
     """
-    path_save = path + '/Distribution_Files/' + name
+    path_save = path + 'Distribution_Files/' + name
 
     skip = 0
     chunk = int(2e6)
     contin = True
-    
+
     # load data in chunks
     data_true = np.genfromtxt(path + file,
                               skip_header=skip,
@@ -882,19 +895,19 @@ def fit_mag_ang_dists(path, file, file_rank, file_dis,
                  dec=data_gaia[:,2] * u.degree,
                  frame='icrs')
     b_gaia = np.array(c.galactic.b.deg)
-    
+
     # these are the bins in G and latitude used
     # to create the various frequence dsitributions
-    evals = {'0':eval('(data_gaia[:, 0] < 10)'),
-             '1':eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-             '2':eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-             '3':eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-             '4':eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-             '5':eval('(data_gaia[:, 0] >= 20)')}
+    evals = {'0': eval('(data_gaia[:, 0] < 10)'),
+             '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
+             '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
+             '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
+             '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
+             '5': eval('(data_gaia[:, 0] >= 20)')}
     
-    evals_b = {'0':eval('(abs(b_gaia) < 19.5)'),
-               '1':eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-               '2':eval('(abs(b_gaia) >= 41.8)')}
+    evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
+               '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
+               '2': eval('(abs(b_gaia) >= 41.8)')}
 
     Hs={}
 
@@ -929,16 +942,16 @@ def fit_mag_ang_dists(path, file, file_rank, file_dis,
                          frame='icrs')
             b_gaia = np.array(c.galactic.b.deg)
 
-            evals_b = {'0':eval('(abs(b_gaia) < 19.5)'),
-                       '1':eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-                       '2':eval('(abs(b_gaia) >= 41.8)')}
-            
-            evals = {'0':eval('(data_gaia[:, 0] < 10)'),
-                     '1':eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-                     '2':eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-                     '3':eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-                     '4':eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-                     '5':eval('(data_gaia[:, 0] >= 20)')}
+            evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
+                       '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
+                       '2': eval('(abs(b_gaia) >= 41.8)')}
+
+            evals = {'0': eval('(data_gaia[:, 0] < 10)'),
+                     '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
+                     '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
+                     '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
+                     '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
+                     '5': eval('(data_gaia[:, 0] >= 20)')}
 
             for i in range(len(mag_cols)):
                 for j in range(len(evals)):
@@ -968,23 +981,23 @@ def fit_mag_ang_dists(path, file, file_rank, file_dis,
                               skip_header=skip,
                               max_rows=chunk,
                               usecols=(7, 1, 2))
-    
+
     c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
                  dec=data_gaia[:,2]*u.degree,
                  frame='icrs')
     b_gaia = np.array(c.galactic.b.deg)
-    
-    evals = {'0':eval('(data_gaia[:, 0] < 10)'),
-             '1':eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-             '2':eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-             '3':eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-             '4':eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-             '5':eval('(data_gaia[:, 0] >= 20)')}
-    
-    evals_b = {'0':eval('(abs(b_gaia) < 19.5)'),
-               '1':eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-               '2':eval('(abs(b_gaia) >= 41.8)')}
-    
+
+    evals = {'0': eval('(data_gaia[:, 0] < 10)'),
+             '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
+             '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
+             '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
+             '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
+             '5': eval('(data_gaia[:, 0] >= 20)')}
+
+    evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
+               '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
+               '2': eval('(abs(b_gaia) >= 41.8)')}
+
     Hds = {}
     
     for i in range(len(mag_cols)):
@@ -1015,16 +1028,16 @@ def fit_mag_ang_dists(path, file, file_rank, file_dis,
                          frame='icrs')
             b_gaia = np.array(c.galactic.b.deg)
 
-            evals_b = {'0':eval('(abs(b_gaia) < 19.5)'),
-                       '1':eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-                       '2':eval('(abs(b_gaia) >= 41.8)')}
+            evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
+                       '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
+                       '2': eval('(abs(b_gaia) >= 41.8)')}
             
-            evals = {'0':eval('(data_gaia[:, 0] < 10)'),
-                     '1':eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-                     '2':eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-                     '3':eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-                     '4':eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-                     '5':eval('(data_gaia[:, 0] >= 20)')}
+            evals = {'0': eval('(data_gaia[:, 0] < 10)'),
+                     '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
+                     '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
+                     '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
+                     '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
+                     '5': eval('(data_gaia[:, 0] >= 20)')}
 
             for i in range(len(mag_cols)):
                 for j in range(len(evals)):
@@ -1116,8 +1129,8 @@ def gauss(x, A, mu, s):
 def n_gauss(pars, inps, data, ncomps):
     """
     This creates a model of a the displaced sample
-    distribution, which is a linear distribution multiplies
-    by a sume of normal distributions of ncomps.
+    distribution, which is a linear distribution multiplied
+    by a sum of normal distributions of ncomps.
     Specifically, this model is meant to
     be fit by the package lmfit.
 
@@ -1151,8 +1164,8 @@ def n_gauss(pars, inps, data, ncomps):
 
 def n_gauss1d(pars, x, data, ncomps):
     """
-    This creates a model of a the displaced sample
-    distributionin the y direction, which is a sum
+    This creates a model of the displaced sample
+    distribution in the y direction, which is a sum
     of normal distributions of ncomps.
     Specifically, this model is meant to
     be fit by the package lmfit.
@@ -1245,7 +1258,7 @@ def n_gauss1d_eval(x, pars, ncomps):
 def n_gauss_eval(inps, pars, ncomps):
     """
     This provides the model of a the displaced sample
-    distributionin the 2D, which is a linear distribution multiplies
+    distributionin the 2D, which is a linear distribution multiplied
     by a sume of normal distributions of ncomps, for some params
     found by lmfit.
 
@@ -1279,7 +1292,7 @@ def rebin(a, shape):
     return a.reshape(sh).sum(-1).sum(1)
 
 
-def back_mod_2d_gauss(name,mag_strs):
+def back_mod_2d_gauss(name, mag_strs):
     """
     This function models the frequency distributions for the displaced
     sample.
@@ -1288,7 +1301,8 @@ def back_mod_2d_gauss(name,mag_strs):
     ----------
 
     name: str
-        name of the external catalog
+        name of the external catalog that is prefixed
+        to the all matches file
 
     mag_strs: list
         list strings for the names of the magntiudes
@@ -1328,12 +1342,15 @@ def back_mod_2d_gauss(name,mag_strs):
                 ang_mid = np.array([(xedges[j] + xedges[j + 1]) / 2 for j in range(len(xedges) - 1)])
                 mag_mid = np.array([(yedges[j] + yedges[j + 1]) / 2 for j in range(len(yedges) - 1)])
 
-                rebin_nx = (xedges[1] - xedges[0]) / 0.2
+                rebin_nx = (xedges[1] - xedges[0])
 
                 # fit a linear distribution in the x direction
+                # take of some of the edge of the distribtuion
+                # as sometimes there is an edge effect that skews
+                # the fit
                 popt_ang, pcov_ang = curve_fit(line,
-                                               ang_mid[:len(Hang) - int(60 / rebin_nx)],
-                                               Hang[:len(Hang) - int(60/rebin_nx)],
+                                               ang_mid[:len(Hang) - int(12 / rebin_nx)],
+                                               Hang[:len(Hang) - int(12 / rebin_nx)],
                                                p0=(100000,0.01))
 
                 # in the y direction, fit a sum of gaussians of varrying weights
@@ -1456,7 +1473,7 @@ def calc_ind(x, x1, x2, dx):
 
     dx: float
         width of the bins
-	"""
+    """
     ind1 = (x - x1) / (x2 - x1)
     ind1[ind1 < 0] = 0
     ind1[ind1 >= 1] = int(1 / dx - 1)
@@ -1473,7 +1490,8 @@ def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
     ----------
 
     name: str
-        name of the external catalog
+        name of the external catalog that is prefixed
+        to the all matches file
 
     smooth_func: scipy function
         function used to smooth prue frequency dsitributions
@@ -1526,9 +1544,9 @@ def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
                 nmod = data_mod['nmod']
                 min_mod = data_mod['min_mod']
                 max_mod = data_mod['max_mod']
-                
+
                 X, Y = np.meshgrid(xedges_dis, yedges_dis)
-                
+
                 # plot the modeled background comapred to the true background
                 plt.figure(figsize=(7, 7))
                 plt.pcolormesh(X, Y, Hmod/Hdis,
@@ -1560,23 +1578,23 @@ def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
                 for l in range(len(scales)):
                     Hsub_smooth = smooth_func(Htrue, **args) - smooth_func(Hmod * scales[l], **args)
                     sums_neg[l] = np.sum(Hsub_smooth[Hsub_smooth < 0])
-        
+
                 # find the scaling factor between true and displaced sample
                 popt, pcov = curve_fit(line_fit, scales, sums_neg, p0=(-1, 1, -10000, 1))
-                
+
                 scale = (popt[3] - popt[1]) / (popt[0] - popt[2])
-                
+
                 # calculate bayes distribution
                 Htrue_smooth = smooth_func(Htrue, **args)
                 Hdis_smooth = smooth_func(Hmod * scale, **args)
                 Hsub_smooth = Htrue_smooth - Hdis_smooth
                 Hsub_smooth[Hsub_smooth < 0.] = 0.
-                
+
                 P1 = np.sum(Hsub_smooth) / np.sum(Htrue_smooth)
                 P0 = 1. - P1
-                
+
                 bayes_dists['%d_%d_%d' % (i, j, k)] = (Hsub_smooth / np.sum(Hsub_smooth)) * P1 / ((Hsub_smooth / np.sum(Hsub_smooth)) * P1 + (Hdis_smooth / np.sum(Hdis_smooth)) * P0)
-                
+
                 np.savez(path_dist + '_bayes_prob_dist_mag_' + str(i + 1) + '_gaia_cut_' + str(j + 1) + '_lat_cut_' + str(k + 1) + '.npz',
                          Hbayes=bayes_dists['%d_%d_%d' % (i, j, k)], scale=scale, P1=P1, P0=P0)
 
@@ -1747,7 +1765,8 @@ def make_best_and_rank_2_sample(name, all_file, rank_file, bayes_file, make_rank
     ----------
 
     name: str
-        name of the external catalog
+        name of the external catalog that is prefixed
+        to the all matches file
 
     all_file: str
         file name for all matches without name
