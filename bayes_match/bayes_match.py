@@ -17,6 +17,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 import matplotlib.pylab as plt
 from functools import reduce
+import os
 
 
 def mjd_to_yr(mjds):
@@ -832,7 +833,8 @@ def rank_match_check_dups(path, file, file_save,
 
 
 def create_mag_ang_dists(path, file, file_rank, file_dis,
-                         file_dis_rank, name, mag_cols, xbins, ybins):
+                         file_dis_rank, name, mag_cols, xbins, ybins,
+                         gaia_cuts, b_cuts):
     """
     This creates all of the frequency dsitribtuions needed
     to calculate the Bayesian probabilities. This requires
@@ -871,7 +873,20 @@ def create_mag_ang_dists(path, file, file_rank, file_dis,
 
     ybins: array
         bins for frequency distirbution for mag difference axis
+
+    gaia_cuts: np.array
+        G cuts used to create distirbutions. It is assumed
+        these are evenly distributed. Also need to add max
+        boundary in last index
+
+    b_cuts: np.array
+        b cuts used to create distirbutions. It is assumed
+        these are not evenly distributed. Also need to add max
+        boundary in last index (should be b=90)
     """
+    if not os.path.isdir(path + 'Distribution_Files/'):
+        os.mkdir(path + 'Distribution_Files/')
+
     path_save = path + 'Distribution_Files/' + name
 
     skip = 0
@@ -898,16 +913,22 @@ def create_mag_ang_dists(path, file, file_rank, file_dis,
 
     # these are the bins in G and latitude used
     # to create the various frequence dsitributions
-    evals = {'0': eval('(data_gaia[:, 0] < 10)'),
-             '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-             '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-             '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-             '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-             '5': eval('(data_gaia[:, 0] >= 20)')}
-    
-    evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
-               '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-               '2': eval('(abs(b_gaia) >= 41.8)')}
+    evals = {}
+    for i in range(len(gaia_cuts)):
+        if i == 0:
+            evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
+        elif i == len(gaia_cuts) - 1:
+            evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
+        else:
+            evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
+    evals_b = {}
+    for i in range(len(b_cuts)):
+        if i == 0:
+            evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
+        elif i == len(b_cuts) - 1:
+            evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
+        else:
+            evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
 
     Hs={}
 
@@ -935,23 +956,29 @@ def create_mag_ang_dists(path, file, file_rank, file_dis,
             data_gaia = np.genfromtxt(path + file,
                                       skip_header=skip,
                                       max_rows=chunk,
-                                      usecols=(7,1,2))
-    
+                                      usecols=(7, 1, 2))
+
             c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
                          dec=data_gaia[:, 2] * u.degree,
                          frame='icrs')
             b_gaia = np.array(c.galactic.b.deg)
 
-            evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
-                       '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-                       '2': eval('(abs(b_gaia) >= 41.8)')}
-
-            evals = {'0': eval('(data_gaia[:, 0] < 10)'),
-                     '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-                     '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-                     '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-                     '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-                     '5': eval('(data_gaia[:, 0] >= 20)')}
+            evals = {}
+            for i in range(len(gaia_cuts)):
+                if i == 0:
+                    evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
+                elif i == len(gaia_cuts) - 1:
+                    evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
+                else:
+                    evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
+            evals_b = {}
+            for i in range(len(b_cuts)):
+                if i == 0:
+                    evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
+                elif i == len(b_cuts) - 1:
+                    evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
+                else:
+                    evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
 
             for i in range(len(mag_cols)):
                 for j in range(len(evals)):
@@ -983,23 +1010,29 @@ def create_mag_ang_dists(path, file, file_rank, file_dis,
                               usecols=(7, 1, 2))
 
     c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
-                 dec=data_gaia[:,2]*u.degree,
+                 dec=data_gaia[:, 2] * u.degree,
                  frame='icrs')
     b_gaia = np.array(c.galactic.b.deg)
 
-    evals = {'0': eval('(data_gaia[:, 0] < 10)'),
-             '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-             '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-             '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-             '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-             '5': eval('(data_gaia[:, 0] >= 20)')}
-
-    evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
-               '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-               '2': eval('(abs(b_gaia) >= 41.8)')}
+    evals = {}
+    for i in range(len(gaia_cuts)):
+        if i == 0:
+            evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
+        elif i == len(gaia_cuts) - 1:
+            evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
+        else:
+            evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
+    evals_b = {}
+    for i in range(len(b_cuts)):
+        if i == 0:
+            evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
+        elif i == len(b_cuts) - 1:
+            evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
+        else:
+            evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
 
     Hds = {}
-    
+
     for i in range(len(mag_cols)):
         for j in range(len(evals)):
             for k in range(len(evals_b)):
@@ -1008,7 +1041,7 @@ def create_mag_ang_dists(path, file, file_rank, file_dis,
                 H, xedges, yedges = np.histogram2d(x, y, bins=[xbins, ybins])
                 Hds['%d_%d_%d' % (i, j, k)] = H.T
     skip += chunk
-    
+
     while contin:
         try:
             data_true = np.genfromtxt(path + file_dis,
@@ -1028,16 +1061,22 @@ def create_mag_ang_dists(path, file, file_rank, file_dis,
                          frame='icrs')
             b_gaia = np.array(c.galactic.b.deg)
 
-            evals_b = {'0': eval('(abs(b_gaia) < 19.5)'),
-                       '1': eval('(abs(b_gaia) >= 19.5) & (abs(b_gaia) < 41.8)'),
-                       '2': eval('(abs(b_gaia) >= 41.8)')}
-            
-            evals = {'0': eval('(data_gaia[:, 0] < 10)'),
-                     '1': eval('(data_gaia[:, 0] >= 10) & (data_gaia[:, 0] < 12.5)'),
-                     '2': eval('(data_gaia[:, 0] >= 12.5) & (data_gaia[:, 0] < 15)'),
-                     '3': eval('(data_gaia[:, 0] >= 15) & (data_gaia[:, 0] < 17.5)'),
-                     '4': eval('(data_gaia[:, 0] >= 17.5) & (data_gaia[:, 0] < 20)'),
-                     '5': eval('(data_gaia[:, 0] >= 20)')}
+            evals = {}
+            for i in range(len(gaia_cuts)):
+                if i == 0:
+                    evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
+                elif i == len(gaia_cuts) - 1:
+                    evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
+                else:
+                    evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
+            evals_b = {}
+            for i in range(len(b_cuts)):
+                if i == 0:
+                    evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
+                elif i == len(b_cuts) - 1:
+                    evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
+                else:
+                    evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
 
             for i in range(len(mag_cols)):
                 for j in range(len(evals)):
@@ -1198,7 +1237,7 @@ def n_gauss1d_BIC(pars, x, data, ncomps):
     """
     This calculates the Bayesian information criteria for
     a model of a the displaced sample
-    distributionin the y direction, which is a sum 
+    distributionin the y direction, which is a sum
     of normal distributions of ncomps.
     Specifically, this model is meant to
     be fit by the package lmfit.
@@ -1292,7 +1331,7 @@ def rebin(a, shape):
     return a.reshape(sh).sum(-1).sum(1)
 
 
-def back_mod_2d_gauss(name, mag_strs):
+def back_mod_2d_gauss(name, mag_strs, g_strs, b_strs, plot_model=True):
     """
     This function models the frequency distributions for the displaced
     sample.
@@ -1307,12 +1346,20 @@ def back_mod_2d_gauss(name, mag_strs):
     mag_strs: list
         list strings for the names of the magntiudes
         in the external catalog (for plotting purposes)
+
+    g_strs: list
+        list of strings for names of cuts in G
+        (needed for plotting and knowing number of cuts)
+
+    b_strs: list
+        list of strings for names of cuts in b latitude
+        (needed for plotting and knowing number of cuts)
+
+    plot_model: booleen
+        option to plot the resulting models and plots
+        that evaluate the staus of the models
     """
     path = 'Distribution_Files/' + name
-    g_strs = ['G<10', '10<G<12.5',
-              '12.5<G<15', '15<G<17.5',
-              '17.5<G<20', 'G>20']
-    b_strs = ['|b|<19.5', '19.5<|b|<41.8', '|b|>41.8']
 
     # iterate through all of the distributions
     for i in range(len(mag_strs)):
@@ -1377,74 +1424,76 @@ def back_mod_2d_gauss(name, mag_strs):
                 ncomps = np.argmin(chis) + 2
                 result = results[str(ncomps)]
 
-                # plot the results
-                plt.figure(figsize=(7, 7))
-                plt.scatter(range(2, 11), chis)
-                plt.grid()
-                plt.axvline(ncomps, linestyle='--', c='r')
-                plt.ylim((np.min(chis) - 20, np.max(np.array(chis)[np.array(chis) < 500000]) + 20))
-                plt.show()
-
-                result.params.pretty_print()
-
                 best_params_dict = result.params.valuesdict()
 
-                plt.figure(figsize=(7, 7))
-                plt.hist(edges_ang[:len(Hang)], bins=edges_ang, weights=Hang)
-                plt.plot(np.arange(0, 20.2, .2),
-                         line(np.arange(0, 20.2, .2), *popt_ang),
-                         '--',
-                         c='r')
-                plt.grid()
-                plt.xlim((0, 20))
-                plt.show()
+                if plot_model:
+                    # plot the results
+                    plt.figure(figsize=(7, 7))
+                    plt.scatter(range(2, 11), chis)
+                    plt.grid()
+                    plt.axvline(ncomps, linestyle='--', c='r')
+                    plt.ylim((np.min(chis) - 20, np.max(np.array(chis)[np.array(chis) < 500000]) + 20))
+                    plt.show()
 
-                plt.figure(figsize=(7, 7))
-                plt.hist(edges_mag[:len(Hmag)], bins=edges_mag, weights=Hmag)
-                plt.plot(np.arange(-50, 50.2, .2),
-                         n_gauss1d_eval(np.arange(-50, 50.2, .2), best_params_dict, ncomps),
-                         '--',
-                         c='r')
-                plt.xlim((min_dis, max_dis))
-                plt.grid()
-                plt.show()
+                    result.params.pretty_print()
+
+                    plt.figure(figsize=(7, 7))
+                    plt.hist(edges_ang[:len(Hang)], bins=edges_ang, weights=Hang)
+                    plt.plot(np.arange(0, 20.2, .2),
+                             line(np.arange(0, 20.2, .2), *popt_ang),
+                             '--',
+                             c='r')
+                    plt.grid()
+                    plt.xlim((0, 20))
+                    plt.show()
+
+                    plt.figure(figsize=(7, 7))
+                    plt.hist(edges_mag[:len(Hmag)], bins=edges_mag, weights=Hmag)
+                    plt.plot(np.arange(-50, 50.2, .2),
+                             n_gauss1d_eval(np.arange(-50, 50.2, .2), best_params_dict, ncomps),
+                             '--',
+                             c='r')
+                    plt.xlim((min_dis, max_dis))
+                    plt.grid()
+                    plt.show()
 
                 Hmod = line(Xm, *popt_ang) * n_gauss1d_eval(Ym, best_params_dict, ncomps)
 
                 popt, pcov = curve_fit(scale,
                                        Hmod.ravel()[Hdis.ravel() > 0],
                                        Hdis.ravel()[Hdis.ravel() > 0])
-                print(popt)
+                if plot_model:
+                    print(popt)
 
-                f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+                    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
 
-                ax1.pcolormesh(X, Y, np.log10(Hmod * popt[0]),
-                               cmap='viridis', shading='flat',
-                               vmin=0, vmax=np.log10(np.nanmax(Hdis)))
-                ax1.set_xlim((0, 15))
-                ax1.set_ylim((min_dis, max_dis))
+                    ax1.pcolormesh(X, Y, np.log10(Hmod * popt[0]),
+                                   cmap='viridis', shading='flat',
+                                   vmin=0, vmax=np.log10(np.nanmax(Hdis)))
+                    ax1.set_xlim((0, 15))
+                    ax1.set_ylim((min_dis, max_dis))
 
-                ax2.pcolormesh(X, Y, np.log10(Hdis),
-                               cmap='viridis', shading='flat',
-                               vmin=0, vmax=np.log10(np.nanmax(Hdis)))
-                ax2.set_xlim((0, 15))
-                ax2.set_ylim((min_dis, max_dis))
-                plt.show()
+                    ax2.pcolormesh(X, Y, np.log10(Hdis),
+                                   cmap='viridis', shading='flat',
+                                   vmin=0, vmax=np.log10(np.nanmax(Hdis)))
+                    ax2.set_xlim((0, 15))
+                    ax2.set_ylim((min_dis, max_dis))
+                    plt.show()
 
-                f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+                    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
 
-                ax1.pcolormesh(X, Y, (Hmod * popt[0]),
-                               cmap='viridis', shading='flat',
-                               vmin=0, vmax=(np.nanmax(Hdis)))
-                ax1.set_xlim((0, 20))
-                ax1.set_ylim((min_dis, max_dis))
+                    ax1.pcolormesh(X, Y, (Hmod * popt[0]),
+                                   cmap='viridis', shading='flat',
+                                   vmin=0, vmax=(np.nanmax(Hdis)))
+                    ax1.set_xlim((0, 20))
+                    ax1.set_ylim((min_dis, max_dis))
 
-                ax2.pcolormesh(X, Y, (Hdis),
-                               cmap='viridis', shading='flat',
-                               vmin=0, vmax=(np.nanmax(Hdis)))
-                ax2.set_xlim((0, 20))
-                ax2.set_ylim((min_dis, max_dis))
-                plt.show()
+                    ax2.pcolormesh(X, Y, (Hdis),
+                                   cmap='viridis', shading='flat',
+                                   vmin=0, vmax=(np.nanmax(Hdis)))
+                    ax2.set_xlim((0, 20))
+                    ax2.set_ylim((min_dis, max_dis))
+                    plt.show()
 
                 Hmod *= popt[0]
 
@@ -1481,7 +1530,8 @@ def calc_ind(x, x1, x2, dx):
     return ind1
 
 
-def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
+def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file,
+                    gaia_cuts, b_cuts, g_strs, b_strs):
     """
     Calculate the Bayesian probability of a star in an external
     catalog being a match to a Gaia source
@@ -1507,17 +1557,31 @@ def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
 
     rank_file: str
         file name for ranks of all matches without name
+
+    gaia_cuts: np.array
+        G cuts used to create distirbutions. It is assumed
+        these are evenly distributed. Also need to add max
+        boundary in last index
+
+    b_cuts: np.array
+        b cuts used to create distirbutions. It is assumed
+        these are not evenly distributed. Also need to add max
+        boundary in last index (should be b=90)
+
+    g_strs: list
+        list of strings for names of cuts in G
+        (needed for plotting)
+
+    b_strs: list
+        list of strings for names of cuts in b latitude
+        (needed for plotting)
     """
     print(name)
     path = name
     path_dist = 'Distribution_Files/' + name
+    if not os.path.isdir('Bayes_Probs/'):
+        os.mkdir('Bayes_Probs/')
     path_fig = 'Bayes_Probs/' + name
-    gaia_cuts = np.array([10, 12.5, 15, 17.5, 20, 22.5])
-    b_cuts = np.array([19.5, 41.8, 90])
-
-    b_strs = ['|b|<19.5', '19.5<|b|<41.8', '|b|>41.8']
-
-    g_strs = ['G<10', '10<G<12.5', '12.5<G<15', '15<G<17.5', '17.5<G<20', 'G>20']
 
     bayes_dists = {}
 
@@ -1677,9 +1741,13 @@ def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
     b = np.array(abs(c.galactic.b.deg))
     js = calc_ind(G, gaia_cuts[0], gaia_cuts[-1], gaia_cuts[1] - gaia_cuts[0])
     ks = np.zeros(len(b))
-    ks[b <= b_cuts[0]] = 0
-    ks[(b > b_cuts[0]) & (b <= b_cuts[1])] = 1
-    ks[b >= b_cuts[1]] = 2
+    for i in range(len(b_cuts)):
+        if i == 0:
+            ks[b <= b_cuts[i]] = i
+        elif i == len(b_cuts) - 1:
+            ks[b >= b_cuts[i - 1]] = i
+        else:
+            ks[(b > b_cuts[i - 1]) & (b <= b_cuts[i])] = i
     x = calc_ind(ang_sep, xedges_true[0], xedges_true[-1], xedges_true[1] - xedges_true[0])
     x = x.astype(int)
 
@@ -1719,9 +1787,13 @@ def calc_bayes_prob(name, smooth_func, args, mag_cols, all_file, rank_file):
             b = np.array(abs(c.galactic.b.deg))
             js = calc_ind(G, gaia_cuts[0], gaia_cuts[-1], gaia_cuts[1] - gaia_cuts[0])
             ks = np.zeros(len(b))
-            ks[b <= b_cuts[0]] = 0
-            ks[(b > b_cuts[0]) & (b <= b_cuts[1])] = 1
-            ks[b >= b_cuts[1]] = 2
+            for i in range(len(b_cuts)):
+                if i == 0:
+                    ks[b <= b_cuts[i]] = i
+                elif i == len(b_cuts) - 1:
+                    ks[b >= b_cuts[i - 1]] = i
+                else:
+                    ks[(b > b_cuts[i - 1]) & (b <= b_cuts[i])] = i
             x = calc_ind(ang_sep, xedges_true[0], xedges_true[-1], xedges_true[1] - xedges_true[0])
             x = x.astype(int)
 
@@ -1756,7 +1828,8 @@ def prod(factors):
     return reduce(operator.mul, factors, 1)
 
 
-def make_best_and_rank_2_sample(name, all_file, rank_file, bayes_file, make_rank_2=True):
+def make_best_and_rank_2_sample(name, all_file, rank_file,
+                                bayes_file, make_rank_2=True):
     """
     Create files with the best matches and optionally lower
     probability matches in the field.
