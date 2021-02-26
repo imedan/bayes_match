@@ -1,9 +1,4 @@
 from setuptools import setup
-import os
-
-
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
 setup(
@@ -12,7 +7,7 @@ setup(
     author="Ilija Medan",
     author_email="medan@astro.gsu.edu",
     description="Bayesian Cross-Match to Gaia DR2 Sources",
-    long_description=read('README.md'),
+    url="https://github.com/imedan/bayes_match",
     license="BSD 3-Clause",
     py_modules=['bayes_match.bayes_match']
     # classifiers=[]
