@@ -14,6 +14,6 @@ setup(
     description="Bayesian Cross-Match to Gaia DR2 Sources",
     long_description=read('README.md'),
     license="BSD 3-Clause",
-    py_modules=['bayes_match.bayes_match']
+    py_modules=['bayes_match']
     # classifiers=[]
 )
