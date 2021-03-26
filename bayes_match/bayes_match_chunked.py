@@ -1543,7 +1543,7 @@ def prod(factors):
     return reduce(operator.mul, factors, 1)
 
 
-def make_best_and_rank_2_sample(ext_folder, make_rank_2=True):
+def make_best_and_rank_2_sample_chunked(ext_folder, make_rank_2=True):
     """
     Create files with the best matches and optionally lower
     probability matches in the field.
