@@ -14,4 +14,4 @@ Also in this new version of the code, I automatically pre-query the external cat
 
 To install this code onto your machine simply run:
 
-	pip install git+https://github.com/imedan/bayes_match.git@chunked_match
+	pip install -e git+https://github.com/imedan/bayes_match.git@chunked_match#egg=0.1.0
