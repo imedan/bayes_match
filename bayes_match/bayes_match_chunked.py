@@ -1323,7 +1323,7 @@ def calc_ind(x, x1, x2, dx):
 
 
 def calc_bayes_prob_chunked(ext_folder, smooth_func, args, mag_cols,
-                            gaia_cuts, b_cuts, g_strs, b_strs):
+                            gaia_cuts, b_cuts, g_strs, b_strs, N_chunk_size):
     """
     Calculate the Bayesian probability of a star in an external
     catalog being a match to a Gaia source
@@ -1361,6 +1361,10 @@ def calc_bayes_prob_chunked(ext_folder, smooth_func, args, mag_cols,
     b_strs: list
         list of strings for names of cuts in b latitude
         (needed for plotting)
+
+    N_chunk_size: int
+        chunk size to read each file in (as sometimes the all
+        matches files are still too large to read into memory)
     """
     path_dist = '%s/Distribution_Files/%s' % (ext_folder, ext_folder)
     if not os.path.isdir('%s/Bayes_Probs/%s' % (ext_folder, ext_folder)):
@@ -1516,53 +1520,62 @@ def calc_bayes_prob_chunked(ext_folder, smooth_func, args, mag_cols,
     # do true sample first
     for of in onlyfiles:
         ch += 1
+        sl = 0
         # load data in chunks
         file_all = '%s/%s_All_Matches_%s.txt' % (ext_folder, ext_folder, of[:-4])
         file_rank = '%s/%s_All_Matches_ranks_%s.txt' % (ext_folder, ext_folder, of[:-4])
+        with open(file_all, 'r') as f_all, open(file_all, 'r') as f_all2, open(file_rank, 'r') as f_rank:
+            while True:
+                sl += 1
+                slice_all = islice(f_all, N_chunk_size)
+                slice_all2 = islice(f_all2, N_chunk_size)
+                slice_rank = islice(f_rank, N_chunk_size)
 
-        # grab chunks of data need to find which index in probability distribution
-        # to use
-        data_ang = np.genfromtxt(file_rank)
-        data_gaia = np.genfromtxt(file_all, usecols=(7, 1, 2))
-        data_mag = np.genfromtxt(file_all, usecols=mag_cols)
+                # grab chunks of data need to find which index in probability distribution
+                # to use
+                data_ang = np.genfromtxt(slice_rank)
+                data_gaia = np.genfromtxt(slice_all, usecols=(7, 1, 2))
+                data_mag = np.genfromtxt(slice_all2, usecols=mag_cols)
 
-        ang_sep = (data_ang[:, 1] ** 2 + data_ang[:, 2] ** 2) ** 0.5
-        G = data_gaia[:, 0]
-        c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
-                     dec=data_gaia[:, 2] * u.degree,
-                     frame='icrs')
-        # get the indexes in all dimensions of probability distribution
-        # i.e. which mag, G cut, b cut, and where on 2D dist
-        b = np.array(abs(c.galactic.b.deg))
-        js = calc_ind(G, gaia_cuts[0], gaia_cuts[-1], gaia_cuts[1] - gaia_cuts[0])
-        ks = np.zeros(len(b))
-        for i in range(len(b_cuts)):
-            if i == 0:
-                ks[b <= b_cuts[i]] = i
-            elif i == len(b_cuts) - 1:
-                ks[b >= b_cuts[i - 1]] = i
-            else:
-                ks[(b > b_cuts[i - 1]) & (b <= b_cuts[i])] = i
-        x = calc_ind(ang_sep, xedges_true[0], xedges_true[-1], xedges_true[1] - xedges_true[0])
-        x = x.astype(int)
+                ang_sep = (data_ang[:, 1] ** 2 + data_ang[:, 2] ** 2) ** 0.5
+                G = data_gaia[:, 0]
+                c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
+                             dec=data_gaia[:, 2] * u.degree,
+                             frame='icrs')
+                # get the indexes in all dimensions of probability distribution
+                # i.e. which mag, G cut, b cut, and where on 2D dist
+                b = np.array(abs(c.galactic.b.deg))
+                js = calc_ind(G, gaia_cuts[0], gaia_cuts[-1], gaia_cuts[1] - gaia_cuts[0])
+                ks = np.zeros(len(b))
+                for i in range(len(b_cuts)):
+                    if i == 0:
+                        ks[b <= b_cuts[i]] = i
+                    elif i == len(b_cuts) - 1:
+                        ks[b >= b_cuts[i - 1]] = i
+                    else:
+                        ks[(b > b_cuts[i - 1]) & (b <= b_cuts[i])] = i
+                x = calc_ind(ang_sep, xedges_true[0], xedges_true[-1], xedges_true[1] - xedges_true[0])
+                x = x.astype(int)
 
-        # now calculate the baye probs for each mag
-        bayes_probs = np.zeros(data_mag.shape)
+                # now calculate the baye probs for each mag
+                bayes_probs = np.zeros(data_mag.shape)
 
-        for i in range(len(mag_cols)):
-            m = data_mag[:, i] - G
-            y = calc_ind(m, yedges_true[0], yedges_true[-1], yedges_true[1] - yedges_true[0])
-            y = y.astype(int)
-            for j in range(len(gaia_cuts)):
-                for k in range(len(b_cuts)):
-                    bayes_probs[:, i][(js == j) & (ks == k)] = bayes_dists['%d_%d_%d' % (i, j, k)][y[(js == j) & (ks == k)],x[(js == j) & (ks == k)]]
-            bayes_probs[:, i][(abs(m - G) > 30) | (data_ang[:, 0] == 0)] = -9999
-            if name == 'SDSS_DR12':
-                bad_mags = [24.635, 25.114, 24.802, 24.362, 22.827]
-                bayes_probs[:, i][np.around(bayes_probs[:, i], 3) == bad_mags[i]] = -9999
+                for i in range(len(mag_cols)):
+                    m = data_mag[:, i] - G
+                    y = calc_ind(m, yedges_true[0], yedges_true[-1], yedges_true[1] - yedges_true[0])
+                    y = y.astype(int)
+                    for j in range(len(gaia_cuts)):
+                        for k in range(len(b_cuts)):
+                            bayes_probs[:, i][(js == j) & (ks == k)] = bayes_dists['%d_%d_%d' % (i, j, k)][y[(js == j) & (ks == k)],x[(js == j) & (ks == k)]]
+                    bayes_probs[:, i][(abs(m - G) > 30) | (data_ang[:, 0] == 0)] = -9999
+                    if name == 'SDSS_DR12':
+                        bad_mags = [24.635, 25.114, 24.802, 24.362, 22.827]
+                        bayes_probs[:, i][np.around(bayes_probs[:, i], 3) == bad_mags[i]] = -9999
 
-        with open(match_save_file + '_%s.txt' % of[:-4], 'ab') as f:
-            np.savetxt(f, bayes_probs)
+                with open(match_save_file + '_%s.txt' % of[:-4], 'ab') as f:
+                    np.savetxt(f, bayes_probs)
+                if data_gaia.shape[0] < N_chunk_size:
+                    break
         print('%d Chunks Done after %.3f minutes!' % (ch, (time.time() - start) / 60), end="\r")
 
 
