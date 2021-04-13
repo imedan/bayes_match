@@ -779,6 +779,7 @@ def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
                 data_gaia = np.genfromtxt(slice_all,
                                           usecols=(7, 1, 2))
 
+                print(data_gaia)
                 c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
                              dec=data_gaia[:,2] * u.degree,
                              frame='icrs')
