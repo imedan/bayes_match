@@ -768,15 +768,16 @@ def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
         # load data in chunks
         file_all = '%s/%s_All_Matches_%s.txt' % (ext_folder, ext_folder, of[:-4])
         file_rank = '%s/%s_All_Matches_ranks_%s.txt' % (ext_folder, ext_folder, of[:-4])
-        with open(file_all, 'r') as f_all, open(file_rank, 'r') as f_rank:
+        with open(file_all, 'r') as f_all, open(file_all, 'r') as f_all2, open(file_rank, 'r') as f_rank:
             while True:
                 sl += 1
                 slice_all = islice(f_all, N_chunk_size)
+                slice_all2 = islice(f_all2, N_chunk_size)
                 slice_rank = islice(f_rank, N_chunk_size)
                 data_true = np.genfromtxt(slice_all,
                                           usecols=mag_cols)
                 data = np.genfromtxt(slice_rank)
-                data_gaia = np.genfromtxt(slice_all,
+                data_gaia = np.genfromtxt(slice_all2,
                                           usecols=(7, 1, 2))
 
                 print(data_gaia)
@@ -830,15 +831,16 @@ def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
         # load data in chunks
         file_all = '%s/%s_All_Matches_dis_%s.txt' % (ext_folder, ext_folder, of[:-4])
         file_rank = '%s/%s_All_Matches_dis_ranks_%s.txt' % (ext_folder, ext_folder, of[:-4])
-        with open(file_all, 'r') as f_all, open(file_rank, 'r') as f_rank:
+        with open(file_all, 'r') as f_all, open(file_all, 'r') as f_all2, open(file_rank, 'r') as f_rank:
             while True:
                 sl += 1
                 slice_all = islice(f_all, N_chunk_size)
+                slice_all2 = islice(f_all2, N_chunk_size)
                 slice_rank = islice(f_rank, N_chunk_size)
                 data_true = np.genfromtxt(slice_all,
                                           usecols=mag_cols)
                 data = np.genfromtxt(slice_rank)
-                data_gaia = np.genfromtxt(slice_all,
+                data_gaia = np.genfromtxt(slice_all2,
                                           usecols=(7, 1, 2))
 
                 c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
