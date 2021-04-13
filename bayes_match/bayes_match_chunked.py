@@ -27,6 +27,7 @@ from os.path import isfile, join
 from astropy.io import ascii
 from astropy.table import Table
 from requests.exceptions import HTTPError
+from itertools import islice
 
 
 def mjd_to_yr(mjds):
@@ -699,7 +700,7 @@ def rank_match_check_dups_chunk(files_folder, ext_folder,
 
 def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
                                  mag_cols, xbins, ybins,
-                                 gaia_cuts, b_cuts):
+                                 gaia_cuts, b_cuts, N_chunk_size):
     """
     This creates all of the frequency dsitribtuions needed
     to calculate the Bayesian probabilities. This requires
@@ -739,7 +740,13 @@ def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
         b cuts used to create distirbutions. It is assumed
         these are not evenly distributed. Also need to add max
         boundary in last index (should be b=90)
+
+    N_chunk_size: int
+        chunk size to read each file in (as sometimes the all
+        matches files are still too large to read into memory)
     """
+    start = time.time()
+
     if not os.path.isdir('%s/Distribution_Files/' % ext_folder):
         os.mkdir('%s/Distribution_Files/' % ext_folder)
 
@@ -757,51 +764,60 @@ def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
     Hs = {}
     for of in onlyfiles:
         ch += 1
+        sl = 0
         # load data in chunks
         file_all = '%s/%s_All_Matches_%s.txt' % (ext_folder, ext_folder, of[:-4])
         file_rank = '%s/%s_All_Matches_ranks_%s.txt' % (ext_folder, ext_folder, of[:-4])
-        data_true = np.genfromtxt(file_all,
-                                  usecols=mag_cols)
-        data = np.genfromtxt(file_rank)
-        data_gaia = np.genfromtxt(file_all,
-                                  usecols=(7, 1, 2))
+        with open(file_all, 'r') as f_all, open(file_rank, 'r') as f_rank:
+            while True:
+                sl += 1
+                slice_all = islice(f_all, N_chunk_size)
+                slice_rank = islice(f_rank, N_chunk_size)
+                data_true = np.genfromtxt(slice_all,
+                                          usecols=mag_cols)
+                data = np.genfromtxt(slice_rank)
+                data_gaia = np.genfromtxt(slice_all,
+                                          usecols=(7, 1, 2))
 
-        c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
-                     dec=data_gaia[:,2] * u.degree,
-                     frame='icrs')
-        b_gaia = np.array(c.galactic.b.deg)
+                c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
+                             dec=data_gaia[:,2] * u.degree,
+                             frame='icrs')
+                b_gaia = np.array(c.galactic.b.deg)
 
-        # these are the bins in G and latitude used
-        # to create the various frequence dsitributions
-        evals = {}
-        for i in range(len(gaia_cuts)):
-            if i == 0:
-                evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
-            elif i == len(gaia_cuts) - 1:
-                evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
-            else:
-                evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
-        evals_b = {}
-        for i in range(len(b_cuts)):
-            if i == 0:
-                evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
-            elif i == len(b_cuts) - 1:
-                evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
-            else:
-                evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
-
-        # for each combination of magntiude, G cut and b cut,
-        # calculate the histogram
-        for i in range(len(mag_cols)):
-            for j in range(len(evals)):
-                for k in range(len(evals_b)):
-                    x = (data[:,1][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2+data[:,2][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2)**0.5
-                    y = (data_true[:,i][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]-data_gaia[:,0][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)])
-                    H, xedges, yedges = np.histogram2d(x, y, bins=[xbins, ybins])
-                    if ch == 1:
-                        Hs['%d_%d_%d' % (i, j, k)] = H.T
+                # these are the bins in G and latitude used
+                # to create the various frequence dsitributions
+                evals = {}
+                for i in range(len(gaia_cuts)):
+                    if i == 0:
+                        evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
+                    elif i == len(gaia_cuts) - 1:
+                        evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
                     else:
-                        Hs['%d_%d_%d' % (i, j, k)] += H.T
+                        evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
+                evals_b = {}
+                for i in range(len(b_cuts)):
+                    if i == 0:
+                        evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
+                    elif i == len(b_cuts) - 1:
+                        evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
+                    else:
+                        evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
+
+                # for each combination of magntiude, G cut and b cut,
+                # calculate the histogram
+                for i in range(len(mag_cols)):
+                    for j in range(len(evals)):
+                        for k in range(len(evals_b)):
+                            x = (data[:,1][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2+data[:,2][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2)**0.5
+                            y = (data_true[:,i][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]-data_gaia[:,0][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)])
+                            H, xedges, yedges = np.histogram2d(x, y, bins=[xbins, ybins])
+                            if ch == 1 and sl ==1:
+                                Hs['%d_%d_%d' % (i, j, k)] = H.T
+                            else:
+                                Hs['%d_%d_%d' % (i, j, k)] += H.T
+                print('CHUNK', ch, 'SLICE', sl, ':', convert(time.time() - start), end="\r")
+                if data_true.shape[0] < N_chunk_size:
+                    break
 
     ch = 0
     # loop through chunk files
@@ -809,51 +825,60 @@ def create_mag_ang_dists_chunked(files_folder, ext_folder, name,
     Hds = {}
     for of in onlyfiles:
         ch += 1
+        sl = 0
         # load data in chunks
         file_all = '%s/%s_All_Matches_dis_%s.txt' % (ext_folder, ext_folder, of[:-4])
         file_rank = '%s/%s_All_Matches_dis_ranks_%s.txt' % (ext_folder, ext_folder, of[:-4])
-        data_true = np.genfromtxt(file_all,
-                                  usecols=mag_cols)
-        data = np.genfromtxt(file_rank)
-        data_gaia = np.genfromtxt(file_all,
-                                  usecols=(7, 1, 2))
+        with open(file_all, 'r') as f_all, open(file_rank, 'r') as f_rank:
+            while True:
+                sl += 1
+                slice_all = islice(f_all, N_chunk_size)
+                slice_rank = islice(f_rank, N_chunk_size)
+                data_true = np.genfromtxt(slice_all,
+                                          usecols=mag_cols)
+                data = np.genfromtxt(slice_rank)
+                data_gaia = np.genfromtxt(slice_all,
+                                          usecols=(7, 1, 2))
 
-        c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
-                     dec=data_gaia[:,2] * u.degree,
-                     frame='icrs')
-        b_gaia = np.array(c.galactic.b.deg)
+                c = SkyCoord(ra=data_gaia[:, 1] * u.degree,
+                             dec=data_gaia[:,2] * u.degree,
+                             frame='icrs')
+                b_gaia = np.array(c.galactic.b.deg)
 
-        # these are the bins in G and latitude used
-        # to create the various frequence dsitributions
-        evals = {}
-        for i in range(len(gaia_cuts)):
-            if i == 0:
-                evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
-            elif i == len(gaia_cuts) - 1:
-                evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
-            else:
-                evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
-        evals_b = {}
-        for i in range(len(b_cuts)):
-            if i == 0:
-                evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
-            elif i == len(b_cuts) - 1:
-                evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
-            else:
-                evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
-
-        # for each combination of magntiude, G cut and b cut,
-        # calculate the histogram
-        for i in range(len(mag_cols)):
-            for j in range(len(evals)):
-                for k in range(len(evals_b)):
-                    x = (data[:,1][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2+data[:,2][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2)**0.5
-                    y = (data_true[:,i][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]-data_gaia[:,0][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)])
-                    H, xedges, yedges = np.histogram2d(x, y, bins=[xbins, ybins])
-                    if ch == 1:
-                        Hds['%d_%d_%d' % (i, j, k)] = H.T
+                # these are the bins in G and latitude used
+                # to create the various frequence dsitributions
+                evals = {}
+                for i in range(len(gaia_cuts)):
+                    if i == 0:
+                        evals[str(i)] = eval('(data_gaia[:, 0] < %f)' % gaia_cuts[i])
+                    elif i == len(gaia_cuts) - 1:
+                        evals[str(i)] = eval('(data_gaia[:, 0] >= %f)' % gaia_cuts[i - 1])
                     else:
-                        Hds['%d_%d_%d' % (i, j, k)] += H.T
+                        evals[str(i)] = eval('(data_gaia[:, 0] >= %f) & (data_gaia[:, 0] < %f)' % (gaia_cuts[i - 1], gaia_cuts[i]))
+                evals_b = {}
+                for i in range(len(b_cuts)):
+                    if i == 0:
+                        evals_b[str(i)] = eval('(abs(b_gaia) < %f)' % b_cuts[i])
+                    elif i == len(b_cuts) - 1:
+                        evals_b[str(i)] = eval('(abs(b_gaia) >= %f)' % b_cuts[i - 1])
+                    else:
+                        evals_b[str(i)] = eval('(abs(b_gaia) >= %f) & (abs(b_gaia) < %f)' % (b_cuts[i - 1], b_cuts[i]))
+
+                # for each combination of magntiude, G cut and b cut,
+                # calculate the histogram
+                for i in range(len(mag_cols)):
+                    for j in range(len(evals)):
+                        for k in range(len(evals_b)):
+                            x = (data[:,1][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2+data[:,2][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]**2)**0.5
+                            y = (data_true[:,i][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)]-data_gaia[:,0][evals[str(j)] & evals_b[str(k)] & (data[:,0]>0) & (data_true[:,i]>-100) & (data_true[:,i]<100)])
+                            H, xedges, yedges = np.histogram2d(x, y, bins=[xbins, ybins])
+                            if ch == 1 and sl == 1:
+                                Hds['%d_%d_%d' % (i, j, k)] = H.T
+                            else:
+                                Hds['%d_%d_%d' % (i, j, k)] += H.T
+                print('CHUNK DIS', ch, 'SLICE', sl, ':', convert(time.time() - start), end="\r")
+                if data_true.shape[0] < N_chunk_size:
+                    break
 
     def find_min_and_max(H, xedges, yedges):
         """
