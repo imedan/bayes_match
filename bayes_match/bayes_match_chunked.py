@@ -1373,8 +1373,8 @@ def calc_bayes_prob_chunked(files_folder, ext_folder, smooth_func, args,
         matches files are still too large to read into memory)
     """
     path_dist = '%s/Distribution_Files/%s' % (ext_folder, ext_folder)
-    if not os.path.isdir('%s/Bayes_Probs/%s' % (ext_folder, ext_folder)):
-        os.mkdir('%s/Bayes_Probs/%s' % (ext_folder, ext_folder))
+    if not os.path.isdir('%s/Bayes_Probs/' % (ext_folder)):
+        os.mkdir('%s/Bayes_Probs/' % (ext_folder))
     path_fig = '%s/Bayes_Probs/%s' % (ext_folder, ext_folder)
 
     bayes_dists = {}
