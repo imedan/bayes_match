@@ -1571,8 +1571,15 @@ def calc_bayes_prob_chunked(files_folder, ext_folder, smooth_func, args,
                     m = data_mag[:, i] - G
                     y = calc_ind(m, yedges_true[0], yedges_true[-1], yedges_true[1] - yedges_true[0])
                     y = y.astype(int)
+                    
                     for j in range(len(gaia_cuts)):
                         for k in range(len(b_cuts)):
+                            print(i,j,k)
+                            print(js[js<0])
+                            print(ks[ks<0])
+                            print(y[y<0])
+                            print(x[x<0])
+                            print(m[y<0])
                             bayes_probs[:, i][(y >= 0) & (x >= 0) & (js == j) & (ks == k)] = bayes_dists['%d_%d_%d' % (i, j, k)][y[(y >= 0) & (x >= 0) & (js == j) & (ks == k)],x[(y >= 0) & (x >= 0) & (js == j) & (ks == k)]]
                     bayes_probs[:, i][(y < 0) | (x < 0) | (np.isnan(m)) | (abs(m) > 30) | (data_ang[:, 0] == 0)] = -9999
                     if name == 'SDSS_DR12':
