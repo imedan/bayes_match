@@ -1152,6 +1152,7 @@ def back_mod_2d_gauss_chunked(ext_folder, mag_strs, g_strs, b_strs, plot_model=T
         that evaluate the staus of the models
     """
     path = '%s/Distribution_Files/%s' % (ext_folder, ext_folder)
+    name = ext_folder
 
     # iterate through all of the distributions
     for i in range(len(mag_strs)):
