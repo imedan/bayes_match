@@ -1323,7 +1323,8 @@ def calc_ind(x, x1, x2, dx):
     return ind1
 
 
-def calc_bayes_prob_chunked(ext_folder, smooth_func, args, mag_cols,
+def calc_bayes_prob_chunked(files_folder, ext_folder, smooth_func, args,
+                            mag_cols,
                             gaia_cuts, b_cuts, g_strs, b_strs, N_chunk_size):
     """
     Calculate the Bayesian probability of a star in an external
@@ -1331,6 +1332,10 @@ def calc_bayes_prob_chunked(ext_folder, smooth_func, args, mag_cols,
 
     Parameters
     ----------
+
+    files_folder: str
+        The directory where the chunks of the Gaia catalog are.
+        Each file must start with 'gaia'
 
     ext_folder: str
         directory name where the match files for external catalog
