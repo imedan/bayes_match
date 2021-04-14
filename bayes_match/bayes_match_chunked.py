@@ -1376,6 +1376,7 @@ def calc_bayes_prob_chunked(files_folder, ext_folder, smooth_func, args,
     if not os.path.isdir('%s/Bayes_Probs/' % (ext_folder)):
         os.mkdir('%s/Bayes_Probs/' % (ext_folder))
     path_fig = '%s/Bayes_Probs/%s' % (ext_folder, ext_folder)
+    name = ext_folder
 
     bayes_dists = {}
 
