@@ -1591,13 +1591,17 @@ def prod(factors):
     return reduce(operator.mul, factors, 1)
 
 
-def make_best_and_rank_2_sample_chunked(ext_folder, make_rank_2=True):
+def make_best_and_rank_2_sample_chunked(files_folder, ext_folder, make_rank_2=True):
     """
     Create files with the best matches and optionally lower
     probability matches in the field.
 
     Parameters
     ----------
+
+    files_folder: str
+        The directory where the chunks of the Gaia catalog are.
+        Each file must start with 'gaia'
 
     ext_folder: str
         directory name where the match files for external catalog
