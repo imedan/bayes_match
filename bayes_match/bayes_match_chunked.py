@@ -549,7 +549,7 @@ def cross_match_chunk(files_folder, chunk_size, id_col,
 
 def rank_match_check_dups_chunk(files_folder, ext_folder,
                                 mean_epoch, dis_rank,
-                                chunk_start=1, flag=None, mag_cols=None):
+                                chunk_start=1, check_dups=False):
     """
     This function calculates the angular seperations at some mean epoch
     between Gaia sources and all sources in field of an external catalog.
@@ -581,11 +581,9 @@ def rank_match_check_dups_chunk(files_folder, ext_folder,
         False if the true sample. This is to get file
         naming correct
 
-    flag: ???
-        dont use this I think
-
-    mag_cols: ???
-        dont use this I think
+    check_dup: boolean
+        check for and remove dupliucates for a possible match
+        (set rank to -1)
     """
     # grab files names of gaia chunks
     # only grab files in directory that start with 'gaia'
@@ -619,14 +617,14 @@ def rank_match_check_dups_chunk(files_folder, ext_folder,
                     # always add field stars on first line
                     if i == 0:
                         temp.append(line)
-                        if flag is not None:
-                            check_dups.append(int(line[flag[0]]))
+                        if check_dup:
+                            check_dups.append(line[8])
                         i += 1
                     # add field star if Gaia ID matches previous line
                     elif line[0] == temp[i-1][0]:
                         temp.append(line)
-                        if flag is not None:
-                            check_dups.append(int(line[flag[0]]))
+                        if check_dup:
+                            check_dups.append(line[8])
                         i += 1
                     # if Gaia ID has changed, caluclated ang seps
                     # and find the ranks
@@ -647,12 +645,15 @@ def rank_match_check_dups_chunk(files_folder, ext_folder,
                             ang_seps.append((dra ** 2 + dde ** 2) ** 0.5)
                         rank0 = rankdata(ang_seps, method='ordinal')
                         ndups = 0
-                        # does this need to be here?
-                        for j in range(len(rank0)):
-                            if flag is not None:
-                                if check_dups[j] == flag[1]:
-                                    rank0[j] = 0
+                        if check_dup:
+                            check_dups = np.array(check_dups)
+                            ind, counts = np.unique(check_dups, return_counts=True)
+                            if np.any(counts > 1):
+                                dup_matches = ind[counts > 1]
+                                for dup in dup_matches:
                                     ndups += 1
+                                    idx_dup = np.where(check_dups == dup)
+                                    rank0[idx_dup[0][1:]] = 0
                         if ndups > 0:
                             rank = rankdata(rank0, method='dense') - 1
                         else:
@@ -664,8 +665,8 @@ def rank_match_check_dups_chunk(files_folder, ext_folder,
                         temp = []
                         temp.append(line)
                         check_dups = []
-                        if flag is not None:
-                            check_dups.append(int(line[flag[0]]))
+                        if check_dup:
+                            check_dups.append(line[8])
                 # once at the end of the file, do calculations
                 # for the last Gaia source
                 ang_seps = []
@@ -684,11 +685,15 @@ def rank_match_check_dups_chunk(files_folder, ext_folder,
                     ang_seps.append((dra ** 2 + dde ** 2) ** 0.5)
                 rank0 = rankdata(ang_seps, method='ordinal')
                 ndups = 0
-                for j in range(len(rank0)):
-                    if flag is not None:
-                        if check_dups[j] == flag[1]:
-                            rank0[j] = 0
+                if check_dup:
+                    check_dups = np.array(check_dups)
+                    ind, counts = np.unique(check_dups, return_counts=True)
+                    if np.any(counts > 1):
+                        dup_matches = ind[counts > 1]
+                        for dup in dup_matches:
                             ndups += 1
+                            idx_dup = np.where(check_dups == dup)
+                            rank0[idx_dup[0][1:]] = 0
                 if ndups > 0:
                     rank = rankdata(rank0, method='dense') - 1
                 else:
