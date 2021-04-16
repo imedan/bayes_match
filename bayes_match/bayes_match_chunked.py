@@ -1667,7 +1667,11 @@ def make_best_and_rank_2_sample_chunked(files_folder, ext_folder, make_rank_2=Tr
                 else:
                     match_prob = np.zeros(len(bayes_temp))
                     for i in range(len(bayes_temp)):
-                        match_prob[i] = prod(bayes_temp[i][bayes_temp[i] >= 0.])
+                        # check for duplicates that arent counted
+                        if int(rank_temp[i][0]) > 0:
+                            match_prob[i] = prod(bayes_temp[i][bayes_temp[i] >= 0.])
+                        else:
+                            match_prob[i] = 0.
                     if np.nanmax(match_prob) > 0.95:
                         best_matches += 1
                         ind_max = np.argmax(match_prob)
@@ -1697,7 +1701,11 @@ def make_best_and_rank_2_sample_chunked(files_folder, ext_folder, make_rank_2=Tr
             # the best match
             match_prob = np.zeros(len(bayes_temp))
             for i in range(len(bayes_temp)):
-                match_prob[i] = prod(bayes_temp[i][bayes_temp[i] >= 0.])
+                # check for duplicates that arent counted
+                if int(rank_temp[i][0]) > 0:
+                    match_prob[i] = prod(bayes_temp[i][bayes_temp[i] >= 0.])
+                else:
+                    match_prob[i] = 0.
             if np.nanmax(match_prob) > 0.95:
                 best_matches += 1
                 ind_max = np.argmax(match_prob)
