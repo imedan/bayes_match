@@ -549,7 +549,7 @@ def cross_match_chunk(files_folder, chunk_size, id_col,
 
 def rank_match_check_dups_chunk(files_folder, ext_folder,
                                 mean_epoch, dis_rank,
-                                chunk_start=1, check_dups=False):
+                                chunk_start=1, check_dup=False):
     """
     This function calculates the angular seperations at some mean epoch
     between Gaia sources and all sources in field of an external catalog.
